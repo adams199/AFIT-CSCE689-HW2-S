@@ -2,6 +2,7 @@
 #define TCPCONN_H
 
 #include "FileDesc.h"
+#include "PasswdMgr.h"
 
 const int max_attempts = 2;
 
@@ -52,6 +53,8 @@ private:
    std::string _newpwd; // Used to store user input for changing passwords
 
    int _pwd_attempts = 0;
+
+   PasswdMgr* passMgr;
 };
 
 

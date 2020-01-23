@@ -6,6 +6,7 @@
 #include <iostream>
 #include "TCPConn.h"
 #include "strfuncts.h"
+#include "PasswdMgr.h"
 
 // The filename/path of the password file
 const char pwdfilename[] = "passwd";
@@ -59,10 +60,11 @@ int TCPConn::sendText(const char *msg, int size) {
 
 void TCPConn::startAuthentication() {
 
-   // Skipping this for now
+   passMgr = new PasswdMgr(pwdfilename);
+
    _status = s_username;
 
-   _connfd.writeFD("Username: "); 
+   handleConnection();
 }
 
 /**********************************************************************************************
@@ -119,7 +121,21 @@ void TCPConn::handleConnection() {
  **********************************************************************************************/
 
 void TCPConn::getUsername() {
-   // Insert your mind-blowing code here
+   _connfd.writeFD("Username: ");
+   
+   std::string username;
+   _connfd.readStr(username);
+   if (passMgr->checkUser(username.c_str()))
+   {
+      _username = username;
+      _status = s_passwd;
+   }
+   else
+   {
+      _connfd.writeFD("Invalid username.");
+      close(_connfd.getFD());
+   }
+
 }
 
 /**********************************************************************************************
@@ -131,7 +147,21 @@ void TCPConn::getUsername() {
  **********************************************************************************************/
 
 void TCPConn::getPasswd() {
-   // Insert your astounding code here
+   _connfd.writeFD("Password: ");
+   hideInput(_connfd.getFD(), true);
+   std::string password;
+   _connfd.readStr(password);
+   hideInput(_connfd.getFD(), false);
+   if (passMgr->checkPasswd(_username.c_str(), password.c_str()))
+      _status = s_menu;
+   else
+   {
+      if (++_pwd_attempts < 2)
+         _connfd.writeFD("Invalid password.\n");
+      else
+         close(_connfd.getFD());
+   }
+
 }
 
 /**********************************************************************************************

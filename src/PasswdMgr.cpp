@@ -103,7 +103,14 @@ bool PasswdMgr::changePasswd(const char *name, const char *passwd) {
 
 bool PasswdMgr::readUser(FileFD &pwfile, std::string &name, std::vector<uint8_t> &hash, std::vector<uint8_t> &salt)
 {
-   // Insert your perfect code here!
+   if((pwfile.readStr(name)) == -1)
+      return false;
+
+   if((pwfile.readBytes(hash, 32)) == -1)
+      return false;
+
+   if((pwfile.readBytes(salt, 16)) == -1)
+      return false;
 
    return true;
 }

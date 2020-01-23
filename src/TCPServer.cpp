@@ -29,15 +29,21 @@ TCPServer::~TCPServer() {
 
 void TCPServer::bindSvr(const char *ip_addr, short unsigned int port) {
 
-   struct sockaddr_in servaddr;
+   if(!inWhitelist(ip_addr))
+      std::cout << "IP is not in the whitelist\n";
 
-   // _server_log.writeLog("Server started.");
+   else
+   {
+      struct sockaddr_in servaddr;
 
-   // Set the socket to nonblocking
-   _sockfd.setNonBlocking();
+      // _server_log.writeLog("Server started.");
 
-   // Load the socket information to prep for binding
-   _sockfd.bindFD(ip_addr, port);
+      // Set the socket to nonblocking
+      _sockfd.setNonBlocking();
+
+      // Load the socket information to prep for binding
+      _sockfd.bindFD(ip_addr, port);
+   }
  
 }
 
@@ -113,6 +119,31 @@ void TCPServer::listenSvr() {
 
 
    
+}
+
+
+/**********************************************************************************************
+ * inWhitelist - returns true if the ip_addr is in the whitelist, else false
+ *
+ **********************************************************************************************/
+
+bool TCPServer::inWhitelist(const char *ip_addr)
+{
+   // create the whitelist file FD and attempt to open
+   FileFD* _whitelist = new FileFD("whitelist");
+   if (!_whitelist->openFile(FileFD::fd_file_type::readfd))
+         std::cout << "Could not open whitelist\n";
+
+   // read all the lines from the whitelist and attempt to match to ip_addr
+   std::string readIP;
+   int moreLines = 0;
+   while (moreLines != -1)
+   {
+      moreLines = _whitelist->readStr(readIP);
+      if (readIP == ip_addr)
+         return true;
+   }
+   return false;
 }
 
 

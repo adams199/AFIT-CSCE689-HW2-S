@@ -325,7 +325,6 @@ bool FileFD::openFile(fd_file_type ftype) {
 
    if ((_fd = open(_filename.c_str(), file_flags[ftype])) == -1)
       return false;
-
    return true;
 }
 
