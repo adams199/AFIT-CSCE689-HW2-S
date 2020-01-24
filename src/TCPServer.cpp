@@ -29,21 +29,15 @@ TCPServer::~TCPServer() {
 
 void TCPServer::bindSvr(const char *ip_addr, short unsigned int port) {
 
-   if(!inWhitelist(ip_addr))
-      std::cout << "IP is not in the whitelist\n";
+   struct sockaddr_in servaddr;
 
-   else
-   {
-      struct sockaddr_in servaddr;
+   // _server_log.writeLog("Server started.");
 
-      // _server_log.writeLog("Server started.");
+   // Set the socket to nonblocking
+   _sockfd.setNonBlocking();
 
-      // Set the socket to nonblocking
-      _sockfd.setNonBlocking();
-
-      // Load the socket information to prep for binding
-      _sockfd.bindFD(ip_addr, port);
-   }
+   // Load the socket information to prep for binding
+   _sockfd.bindFD(ip_addr, port);
  
 }
 
@@ -77,19 +71,27 @@ void TCPServer::listenSvr() {
             // _server_log.strerrLog("Data received on socket but failed to accept.");
             continue;
          }
-         std::cout << "***Got a connection***\n";
-
-         _connlist.push_back(std::unique_ptr<TCPConn>(new_conn));
 
          // Get their IP Address string to use in logging
          std::string ipaddr_str;
          new_conn->getIPAddrStr(ipaddr_str);
+         if (!inWhitelist(ipaddr_str))
+         {
+            new_conn->sendText("This IP is not recognized by the whitelist.\n");
+            new_conn->disconnect();
+         }
+         
+         else
+         {
+            std::cout << "***Got a connection***\n";
 
+            _connlist.push_back(std::unique_ptr<TCPConn>(new_conn));
 
-         new_conn->sendText("Welcome to the CSCE 689 Server!\n");
+            new_conn->sendText("Welcome to the CSCE 689 Server!\n");
 
-         // Change this later
-         new_conn->startAuthentication();
+            // Change this later
+            new_conn->startAuthentication();
+         }
       }
 
       // Loop through our connections, handling them
@@ -127,7 +129,7 @@ void TCPServer::listenSvr() {
  *
  **********************************************************************************************/
 
-bool TCPServer::inWhitelist(const char *ip_addr)
+bool TCPServer::inWhitelist(std::string &ip_addr)
 {
    // create the whitelist file FD and attempt to open
    FileFD* _whitelist = new FileFD("whitelist");
