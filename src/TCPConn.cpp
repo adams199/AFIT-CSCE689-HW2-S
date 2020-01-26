@@ -159,7 +159,7 @@ void TCPConn::getPasswd() {
       if (++_pwd_attempts < 2)
          _connfd.writeFD("Invalid password.\n");
       else
-         close(_connfd.getFD());
+         this->disconnect();
    }
 
 }

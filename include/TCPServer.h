@@ -17,7 +17,7 @@ public:
    void listenSvr();
    void shutdown();
 
-   bool inWhitelist(const char *ip_addr);
+   bool inWhitelist(std::string &ip_addr);
 
 private:
    // Class to manage the server socket

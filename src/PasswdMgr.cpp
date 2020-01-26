@@ -103,13 +103,13 @@ bool PasswdMgr::changePasswd(const char *name, const char *passwd) {
 
 bool PasswdMgr::readUser(FileFD &pwfile, std::string &name, std::vector<uint8_t> &hash, std::vector<uint8_t> &salt)
 {
-   if((pwfile.readStr(name)) == -1)
+   if((pwfile.readStr(name)) <= 0)
       return false;
 
-   if((pwfile.readBytes(hash, 32)) == -1)
+   if((pwfile.readBytes(hash, hashlen)) == -1)
       return false;
 
-   if((pwfile.readBytes(salt, 16)) == -1)
+   if((pwfile.readBytes(salt, saltlen)) == -1)
       return false;
 
    return true;
@@ -132,7 +132,11 @@ int PasswdMgr::writeUser(FileFD &pwfile, std::string &name, std::vector<uint8_t>
 {
    int results = 0;
 
-   // Insert your wild code here!
+   results += pwfile.writeFD(name);
+   results += pwfile.writeByte('\n');
+   results += pwfile.writeBytes(hash);
+   results += pwfile.writeBytes(salt);
+   results += pwfile.writeByte('\n');
 
    return results; 
 }
@@ -194,7 +198,9 @@ bool PasswdMgr::findUser(const char *name, std::vector<uint8_t> &hash, std::vect
  *****************************************************************************************************/
 void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> &ret_salt, 
                            const char *in_passwd, std::vector<uint8_t> *in_salt) {
-   // Hash those passwords!!!!
+   
+   argon2i_hash_raw(t_cost, m_cost, parallelism, pwd, pwdlen, salt, SALTLEN, hash1, HASHLEN);
+   //https://github.com/P-H-C/phc-winner-argon2
 
 }
 
@@ -206,6 +212,16 @@ void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> 
  ****************************************************************************************************/
 
 void PasswdMgr::addUser(const char *name, const char *passwd) {
-   // Add those users!
+   std::vector<uint8_t> hash , salt;
+   if(findUser(name, hash, salt))
+      return;
+
+   FileFD pwfile(_pwd_file.c_str());
+   if (!pwfile.openFile(FileFD::appendfd))
+      throw pwfile_error("Could not open passwd file for appedning");
+   
+   //salt is random asci from 36 to 128 or something
+   //pass salt and password to above function and append result to pwfile
+
 }
 
