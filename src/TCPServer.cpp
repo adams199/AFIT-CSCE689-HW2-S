@@ -115,10 +115,7 @@ void TCPServer::listenSvr() {
 
       // So we're not chewing up CPU cycles unnecessarily
       nanosleep(&sleeptime, NULL);
-   } 
-
-
-   
+   }
 }
 
 
