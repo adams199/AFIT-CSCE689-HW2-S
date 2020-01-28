@@ -132,7 +132,7 @@ void TCPConn::getUsername() {
    }
    else
    {
-      _connfd.writeFD("Invalid username.");
+      _connfd.writeFD("Invalid username.\n");
       close(_connfd.getFD());
    }
 
@@ -148,10 +148,10 @@ void TCPConn::getUsername() {
 
 void TCPConn::getPasswd() {
    _connfd.writeFD("Password: ");
-   hideInput(_connfd.getFD(), true);
+   //hideInput(_connfd.getFD(), true);
    std::string password;
    _connfd.readStr(password);
-   hideInput(_connfd.getFD(), false);
+   //hideInput(_connfd.getFD(), false);
    if (passMgr->checkPasswd(_username.c_str(), password.c_str()))
       _status = s_menu;
    else
@@ -174,7 +174,34 @@ void TCPConn::getPasswd() {
  **********************************************************************************************/
 
 void TCPConn::changePassword() {
-   // Insert your amazing code here
+   
+   if (_status == s_changepwd)
+   {
+      //hideInput(_connfd.getFD(), true);
+      _connfd.readStr(_newpwd);
+      //hideInput(_connfd.getFD(), false);
+      _status = s_confirmpwd;
+   }
+   
+   else if (_status == s_confirmpwd)
+   {
+       _connfd.writeFD("Confirm new Password: ");
+      //hideInput(_connfd.getFD(), true);
+      std::string conPwd;
+      _connfd.readStr(conPwd);
+      //hideInput(_connfd.getFD(), false);
+
+      if(!conPwd.compare(_newpwd))
+      {
+         if (passMgr->changePasswd(_username.c_str(), _newpwd.c_str()))
+         {
+            std::cout << "Password changed succesfully.\n";
+            _status = s_menu;
+         }
+              
+      }
+   }
+  
 }
 
 

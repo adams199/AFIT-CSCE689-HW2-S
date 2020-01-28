@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstring>
 #include <list>
+#include <fstream>
 #include "PasswdMgr.h"
 #include "FileDesc.h"
 #include "strfuncts.h"
@@ -29,9 +30,9 @@ PasswdMgr::~PasswdMgr() {
  *******************************************************************************************/
 
 bool PasswdMgr::checkUser(const char *name) {
-   std::vector<uint8_t> passwd, salt;
+   std::vector<uint8_t> hash, salt;
 
-   bool result = findUser(name, passwd, salt);
+   bool result = findUser(name, hash, salt);
 
    return result;
      
@@ -52,16 +53,15 @@ bool PasswdMgr::checkUser(const char *name) {
 
 bool PasswdMgr::checkPasswd(const char *name, const char *passwd) {
    std::vector<uint8_t> userhash; // hash from the password file
-   std::vector<uint8_t> passhash; // hash derived from the parameter passwd
-   std::vector<uint8_t> salt;
+   std::vector<uint8_t> hash, salt; // hash derived from the parameter passwd
 
    // Check if the user exists and get the passwd string
    if (!findUser(name, userhash, salt))
       return false;
+       
+   hashArgon2(hash, passwd, salt);
 
-   hashArgon2(passhash, salt, passwd, &salt);
-
-   if (userhash == passhash)
+   if (userhash == hash)
       return true;
 
    return false;
@@ -82,9 +82,40 @@ bool PasswdMgr::checkPasswd(const char *name, const char *passwd) {
 
 bool PasswdMgr::changePasswd(const char *name, const char *passwd) {
 
-   // Insert your insane code here
+   // great c classes are wrapped in weird custom classes not allowing reusibility
+   std::fstream pwFile(_pwd_file.c_str());
+   std::string uname;
+   std::vector<uint8_t> newHash, oldSalt;
+   
+   getline(pwFile, uname);
+   while(uname != "")
+   {
+      if (!uname.compare(name))
+      {
+         char hash[hashlen], salt[saltlen];
+         int pos = pwFile.tellg();
 
-   return true;
+         // read in the old hash and salt
+         pwFile.read(hash, hashlen);
+         pwFile.read(salt, saltlen);
+         for(int i = 0; i < saltlen; i++)
+            oldSalt.push_back(salt[i]);
+
+         // make a new hash
+         hashArgon2(newHash, passwd, oldSalt);
+         for(int i = 0; i < hashlen; i++)
+            hash[i] = newHash.at(i);
+         
+         // write over the old hash
+         pwFile.seekg(pos);
+         pwFile.write(hash, 32);
+         pwFile.close();
+         return true;
+      }
+      else
+         getline(pwFile, uname);
+   }
+   return false;
 }
 
 /*****************************************************************************************************
@@ -110,6 +141,10 @@ bool PasswdMgr::readUser(FileFD &pwfile, std::string &name, std::vector<uint8_t>
       return false;
 
    if((pwfile.readBytes(salt, saltlen)) == -1)
+      return false;
+
+   unsigned char temp; // read in last \n
+   if((pwfile.readByte(temp)) == -1)
       return false;
 
    return true;
@@ -196,11 +231,20 @@ bool PasswdMgr::findUser(const char *name, std::vector<uint8_t> &hash, std::vect
  *
  *    Throws: runtime_error if the salt passed in is not the right size
  *****************************************************************************************************/
-void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> &ret_salt, 
-                           const char *in_passwd, std::vector<uint8_t> *in_salt) {
+void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, const char *in_passwd, std::vector<uint8_t> &in_salt) {
    
-   argon2i_hash_raw(t_cost, m_cost, parallelism, pwd, pwdlen, salt, SALTLEN, hash1, HASHLEN);
-   //https://github.com/P-H-C/phc-winner-argon2
+   uint8_t hash[hashlen], salt[saltlen];
+   uint32_t pwdlen = strlen(in_passwd);
+   for(int i = 0; i < saltlen; i++)
+      salt[i] = in_salt.at(i);
+
+   uint32_t t_cost = 2;            // 1-pass computation
+   uint32_t m_cost = (1<<16);      // 64 mebibytes memory usage
+   uint32_t parallelism = 1;       // number of threads and lanes
+   argon2i_hash_raw(t_cost, m_cost, parallelism, in_passwd, pwdlen, salt, saltlen, hash, hashlen);
+
+   for(int i = 0; i < hashlen; i++)
+      ret_hash.push_back(hash[i]);
 
 }
 
@@ -212,16 +256,30 @@ void PasswdMgr::hashArgon2(std::vector<uint8_t> &ret_hash, std::vector<uint8_t> 
  ****************************************************************************************************/
 
 void PasswdMgr::addUser(const char *name, const char *passwd) {
-   std::vector<uint8_t> hash , salt;
+   std::vector<uint8_t> hash, salt;
+
    if(findUser(name, hash, salt))
       return;
 
+   salt.clear();
+   hash.clear();
+
    FileFD pwfile(_pwd_file.c_str());
    if (!pwfile.openFile(FileFD::appendfd))
-      throw pwfile_error("Could not open passwd file for appedning");
+      throw pwfile_error("Could not open passwd file for appending");
    
-   //salt is random asci from 36 to 128 or something
-   //pass salt and password to above function and append result to pwfile
+
+   // if need to add, need to generate unique salt for user.
+   srand(time(NULL));
+   for(int i = 0; i < saltlen; i++)
+      salt.push_back((rand() % (125-33)) + 33);
+
+   hashArgon2(hash, passwd, salt);
+
+   std::string sname = name;
+   writeUser(pwfile, sname, hash, salt);
+
+   pwfile.closeFD();
 
 }
 
