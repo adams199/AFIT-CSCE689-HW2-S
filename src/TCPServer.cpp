@@ -10,14 +10,16 @@
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <chrono>
 #include "TCPServer.h"
 
-TCPServer::TCPServer(){ // :_server_log("server.log", 0) {
+TCPServer::TCPServer(){
+   _server_log.open("server.log");
 }
 
 
 TCPServer::~TCPServer() {
-
+   _server_log.close();
 }
 
 /**********************************************************************************************
@@ -31,7 +33,8 @@ void TCPServer::bindSvr(const char *ip_addr, short unsigned int port) {
 
    struct sockaddr_in servaddr;
 
-   // _server_log.writeLog("Server started.");
+   std::string s("Server started.");
+   logMsg(s);
 
    // Set the socket to nonblocking
    _sockfd.setNonBlocking();
@@ -79,6 +82,7 @@ void TCPServer::listenSvr() {
          {
             new_conn->sendText("This IP is not recognized by the whitelist.\n");
             new_conn->disconnect();
+            logMsg(ipaddr_str += " not found. Disconnecting.");
          }
          
          else
@@ -87,10 +91,37 @@ void TCPServer::listenSvr() {
 
             _connlist.push_back(std::unique_ptr<TCPConn>(new_conn));
 
+            logMsg(ipaddr_str += " found. Connecting.");
+
             new_conn->sendText("Welcome to the CSCE 689 Server!\n");
 
-            // Change this later
             new_conn->startAuthentication();
+            int test = new_conn->handleConnection();
+
+            // log appropriately
+            if (test == -1)
+            {
+               std::string ip, username(new_conn->getUsernameStr());
+               new_conn->getIPAddrStr(ip);
+               std::string msg = "Username: " + username + " with IP: " + ip + " not recognized.";
+               logMsg(msg);
+            }
+            else if (test == -2)
+            {
+               std::string ip, username(new_conn->getUsernameStr());
+               new_conn->getIPAddrStr(ip);
+               std::string msg = "Username: " + username + " with IP: " + ip + " failed to enter password correctly.";
+               logMsg(msg);
+            }
+            else
+            {
+               std::string ip, username(new_conn->getUsernameStr());
+               new_conn->getIPAddrStr(ip);
+               std::string msg = "Username: " + username + " with IP: " + ip + " logged in successfully.";
+               logMsg(msg);            
+            }
+            
+
          }
       }
 
@@ -100,7 +131,13 @@ void TCPServer::listenSvr() {
       {
          // If the user lost connection
          if (!(*tptr)->isConnected()) {
+
             // Log it
+            std::string ip, username((*tptr)->getUsernameStr());
+            ((*tptr)->getIPAddrStr(ip));
+            std::string msg = "Username: " + username + " with IP: " + ip + " disconnected.";
+            logMsg(msg);
+            
 
             // Remove them from the connect list
             tptr = _connlist.erase(tptr);
@@ -144,6 +181,20 @@ bool TCPServer::inWhitelist(std::string &ip_addr)
    }
    return false;
 }
+
+
+/**********************************************************************************************
+ * logMsg - logs the message with the time stamp
+ *
+ **********************************************************************************************/
+void TCPServer::logMsg(std::string &Msg)
+{
+   auto time = std::chrono::system_clock::now();
+   std::time_t time_now = std::chrono::system_clock::to_time_t(time);
+   _server_log << Msg << " " << std::ctime(&time_now)  << "\n";
+   _server_log.flush();
+}
+
 
 
 /**********************************************************************************************

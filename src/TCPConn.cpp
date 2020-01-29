@@ -4,6 +4,7 @@
 #include <cstring>
 #include <algorithm>
 #include <iostream>
+#include <fstream>
 #include "TCPConn.h"
 #include "strfuncts.h"
 #include "PasswdMgr.h"
@@ -11,10 +12,9 @@
 // The filename/path of the password file
 const char pwdfilename[] = "passwd";
 
-TCPConn::TCPConn(){ // LogMgr &server_log):_server_log(server_log) {
+TCPConn::TCPConn(){
 
 }
-
 
 TCPConn::~TCPConn() {
 
@@ -63,8 +63,6 @@ void TCPConn::startAuthentication() {
    passMgr = new PasswdMgr(pwdfilename);
 
    _status = s_username;
-
-   handleConnection();
 }
 
 /**********************************************************************************************
@@ -74,7 +72,7 @@ void TCPConn::startAuthentication() {
  *    Throws: runtime_error for unrecoverable issues
  **********************************************************************************************/
 
-void TCPConn::handleConnection() {
+int TCPConn::handleConnection() {
 
    timespec sleeptime;
    sleeptime.tv_sec = 0;
@@ -83,12 +81,12 @@ void TCPConn::handleConnection() {
    try {
       switch (_status) {
          case s_username:
-            getUsername();
-            break;
+            if(getUsername() == -1)
+               return -1; // means getusername failed
 
          case s_passwd:
-            getPasswd();
-            break;
+            if(getPasswd() == -1)
+               return -2; // means getpassword failed
    
          case s_changepwd:
          case s_confirmpwd:
@@ -97,7 +95,6 @@ void TCPConn::handleConnection() {
 
          case s_menu:
             getMenuChoice();
-
             break;
 
          default:
@@ -107,10 +104,11 @@ void TCPConn::handleConnection() {
    } catch (socket_error &e) {
       std::cout << "Socket error, disconnecting.";
       disconnect();
-      return;
+      return 0;
    }
 
    nanosleep(&sleeptime, NULL);
+   return 0;
 }
 
 /**********************************************************************************************
@@ -120,20 +118,22 @@ void TCPConn::handleConnection() {
  *    Throws: runtime_error for unrecoverable issues
  **********************************************************************************************/
 
-void TCPConn::getUsername() {
+int TCPConn::getUsername() {
    _connfd.writeFD("Username: ");
    
    std::string username;
    _connfd.readStr(username);
+   _username = username;
    if (passMgr->checkUser(username.c_str()))
    {
-      _username = username;
       _status = s_passwd;
+      return 0;
    }
    else
    {
       _connfd.writeFD("Invalid username.\n");
       close(_connfd.getFD());
+      return -1;
    }
 
 }
@@ -146,12 +146,13 @@ void TCPConn::getUsername() {
  *    Throws: runtime_error for unrecoverable issues
  **********************************************************************************************/
 
-void TCPConn::getPasswd() {
+int TCPConn::getPasswd() {
+
    _connfd.writeFD("Password: ");
-   //hideInput(_connfd.getFD(), true);
    std::string password;
    _connfd.readStr(password);
-   //hideInput(_connfd.getFD(), false);
+
+
    if (passMgr->checkPasswd(_username.c_str(), password.c_str()))
       _status = s_menu;
    else
@@ -160,8 +161,9 @@ void TCPConn::getPasswd() {
          _connfd.writeFD("Invalid password.\n");
       else
          this->disconnect();
+      return -1;
    }
-
+   return 0;
 }
 
 /**********************************************************************************************
@@ -177,19 +179,16 @@ void TCPConn::changePassword() {
    
    if (_status == s_changepwd)
    {
-      //hideInput(_connfd.getFD(), true);
       _connfd.readStr(_newpwd);
-      //hideInput(_connfd.getFD(), false);
       _status = s_confirmpwd;
    }
    
    else if (_status == s_confirmpwd)
    {
        _connfd.writeFD("Confirm new Password: ");
-      //hideInput(_connfd.getFD(), true);
+
       std::string conPwd;
       _connfd.readStr(conPwd);
-      //hideInput(_connfd.getFD(), false);
 
       if(!conPwd.compare(_newpwd))
       {

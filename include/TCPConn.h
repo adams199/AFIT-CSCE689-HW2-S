@@ -11,7 +11,7 @@ const int max_attempts = 2;
 class TCPConn 
 {
 public:
-   TCPConn(/* LogMgr &server_log*/);
+   TCPConn();
    ~TCPConn();
 
    bool accept(SocketFD &server);
@@ -19,10 +19,10 @@ public:
    int sendText(const char *msg);
    int sendText(const char *msg, int size);
 
-   void handleConnection();
+   int handleConnection();
    void startAuthentication();
-   void getUsername();
-   void getPasswd();
+   int getUsername();
+   int getPasswd();
    void sendMenu();
    void getMenuChoice();
    void setPassword();
