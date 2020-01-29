@@ -194,8 +194,12 @@ bool TCPServer::inWhitelist(std::string &ip_addr)
    {
       whiteFile.getline(readIP, 20);
       if (readIP == ip_addr)
+      {
+         whiteFile.close();
          return true;
+      }
    }
+   whiteFile.close();
    return false;
 
 }
