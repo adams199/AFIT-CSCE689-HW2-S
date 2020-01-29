@@ -165,6 +165,8 @@ void TCPServer::listenSvr() {
 
 bool TCPServer::inWhitelist(std::string &ip_addr)
 {
+   /* Given class fd file cannot handle certain cases, lets use an fstream...
+
    // create the whitelist file FD and attempt to open
    FileFD* _whitelist = new FileFD("whitelist");
    if (!_whitelist->openFile(FileFD::fd_file_type::readfd))
@@ -179,7 +181,23 @@ bool TCPServer::inWhitelist(std::string &ip_addr)
       if (readIP == ip_addr)
          return true;
    }
+   return false; */
+
+   // create the whitelist file FD and attempt to open
+   std::ifstream whiteFile("whitelist");
+   if(!whiteFile.is_open())
+      std::cout << "Could not open whitelist\n";
+
+   // read all the lines from the whitelist and attempt to match to ip_addr
+   char readIP[20];
+   while (!whiteFile.eof())
+   {
+      whiteFile.getline(readIP, 20);
+      if (readIP == ip_addr)
+         return true;
+   }
    return false;
+
 }
 
 
